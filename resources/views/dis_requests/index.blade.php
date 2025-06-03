@@ -54,14 +54,14 @@
         <div class="row m-2 mb-1 bg-light p-5 rounded row justify-content-md-center">
             <div class="table-responsive">
                 <!-- Search Inputs -->
-                {{-- <div class="row mb-3">
+                <!-- <div class="row mb-3">
                     <div class="col-md-3">
                         <input type="text" id="searchName" class="form-control" placeholder="جستجو بر اساس نام نماینده">
                     </div>
                     <div class="col-md-3">
                         <input type="text" id="searchStatus" class="form-control" placeholder="جستجو بر اساس وضعیت درخواست">
                     </div>
-                </div> --}}
+                </div> -->
 
                 <table class="table table-bordered">
                     <thead>
@@ -115,7 +115,6 @@
 
                                     <td>{{ $request->jalali_created_at }}</td>
 
-
                                     <td>
                                         <div style="display: flex; gap: 5px;">
                                            @if(auth()->user()->role == 'personnel')
@@ -129,11 +128,6 @@
                                                 <button type="submit" class="btn btn-info">مشاهده جزئیات</button>
                                             </form>
                                         </div>
-                                    </td>
-                                    
-                                    
-                                    
-                                    
                                 </tr>
                             @endif
                         @endforeach
@@ -143,10 +137,9 @@
 
             <script>
 
-
-    function confirmDelete(form) {
-        return confirm('آیا از حذف این مورد مطمئن هستید؟');
-    }
+                function confirmDelete(form) {
+                        return confirm('آیا از حذف این مورد مطمئن هستید؟');
+                    }
 
 
 

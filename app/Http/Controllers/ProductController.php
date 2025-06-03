@@ -15,52 +15,52 @@ class ProductController extends Controller
      */
 
      public function index()
-{
-    $user = auth()->user();
-    $products = collect();
-    $connectionIsOk = true;
-
-    try {
-        if ($user->id != 1) {
-            // محصولات مجاز این کاربر از دیتابیس MySQL
-            $allowedProducts = DB::table('user_product_visibility')
-                ->where('user_id', $user->id)
-                ->get(['product_name', 'product_degree']);
-
-            // تبدیل لیست مجازها به آرایه از ترکیب name و degree
-            $allowedPairs = $allowedProducts->map(function ($item) {
-                return ['name' => $item->product_name, 'degree' => $item->product_degree];
-            });
-
-            // گرفتن تمام محصولات فقط یک بار
-            $allCRMProducts = DB::connection('sqlsrv')
-                ->table('vw_CRMproducts')
-                ->get();
-
-            // فیلتر محصولات بر اساس لیست مجاز
-            $products = $allCRMProducts->filter(function ($crmProduct) use ($allowedPairs) {
-                return $allowedPairs->contains(function ($allowed) use ($crmProduct) {
-                    return $crmProduct->name === $allowed['name'] &&
-                           $crmProduct->degree === $allowed['degree'];
-                });
-            })->values(); // values() برای reset کردن indexها
-
-        } else {
-            // اگر کاربر ادمین بود، همه محصولات رو بیار
-            $products = DB::connection('sqlsrv')
-                ->table('vw_CRMproducts')
-                ->get();
-        }
-
-    } catch (\Throwable $e) {
-        $connectionIsOk = false;
-        $products = collect(); // اگر خطا بود لیست خالی بده
-        session()->flash('error', 'ارتباط با سرور قطع می‌باشد.');
-    }
-
-    return view('products.index', compact('products', 'connectionIsOk'));
-}
-
+     {
+         $user = auth()->user();
+         $products = collect();
+         $connectionIsOk = true;
+     
+         try {
+             if ($user->id != 1) {
+                 // محصولات مجاز این کاربر از دیتابیس MySQL
+                 $allowedProducts = DB::table('user_product_visibility')
+                     ->where('user_id', $user->id)
+                     ->get(['product_name', 'product_degree']);
+     
+                 // تبدیل لیست مجازها به آرایه از ترکیب name و degree
+                 $allowedPairs = $allowedProducts->map(function ($item) {
+                     return ['name' => $item->product_name, 'degree' => $item->product_degree];
+                 });
+     
+                 // گرفتن تمام محصولات فقط یک بار
+                 $allCRMProducts = DB::connection('sqlsrv')
+                     ->table('vw_CRMproducts')
+                     ->get();
+     
+                 // فیلتر محصولات بر اساس لیست مجاز
+                 $products = $allCRMProducts->filter(function ($crmProduct) use ($allowedPairs) {
+                     return $allowedPairs->contains(function ($allowed) use ($crmProduct) {
+                         return $crmProduct->name === $allowed['name'] &&
+                                $crmProduct->degree === $allowed['degree'];
+                     });
+                 })->values(); // values() برای reset کردن indexها
+     
+             } else {
+                 // اگر کاربر ادمین بود، همه محصولات رو بیار
+                 $products = DB::connection('sqlsrv')
+                     ->table('vw_CRMproducts')
+                     ->get();
+             }
+     
+         } catch (\Throwable $e) {
+             $connectionIsOk = false;
+             $products = collect(); // اگر خطا بود لیست خالی بده
+             session()->flash('error', 'ارتباط با سرور قطع می‌باشد.');
+         }
+     
+         return view('products.index', compact('products', 'connectionIsOk'));
+     }
+     
      
 
 

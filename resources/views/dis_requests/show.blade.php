@@ -70,11 +70,11 @@
                         </div>
                         <div class="card-body">
                             <p><strong>نام محصول:</strong>
-                                {{ $request->product_details->name }} 
-                                {{ $request->product_details->degree }} 
-                                {{ $request->product_details->size }} 
-                                {{ $request->product_details->model }} 
-                                {{ $request->product_details->color }} 
+                                {{ $request->product_details->name }}  
+                                {{ $request->product_details->degree }}  
+                                {{ $request->product_details->size }}  
+                                {{ $request->product_details->model }}  
+                                {{ $request->product_details->color }}  
                                 {{ $request->product_details->color_code }}
                             </p>
                             <p><strong>تاریخ ایجاد:</strong> {{ $request->created_at_jalali }}</p>

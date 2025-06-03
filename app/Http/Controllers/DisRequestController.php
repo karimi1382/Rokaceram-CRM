@@ -46,14 +46,12 @@ class DisRequestController extends Controller
         foreach ($requests as $request) {
             // دریافت اطلاعات محصول از اتصال sqlsrv
             if ($request->product_id) {
-                
                 $product = DB::connection('sqlsrv')->table('vw_CRMproducts')
                     ->where('id', $request->product_id)
                     ->first();
 
                 $request->product_details = $product ?: null;
             }
-          
 
             // تبدیل تاریخ به شمسی
             $request->jalali_created_at = $request->created_at 
@@ -140,26 +138,26 @@ public function create(Request $request)
     
         if ($existingHavale) {
            
-              // Find the DisRequest by ID
-        $disRequest = DisRequest::findOrFail($id);
-    
-        // Insert the havale_number into dis_request_havales table
-        $disRequestHavale = new DisRequestHavale();
-        $disRequestHavale->dis_request_id = $disRequest->id; // Associate it with the current request
-        $disRequestHavale->havale_number = $request->havale_number; // Insert havale number
-        $disRequestHavale->save(); // Save the new havale record
-    
-        // Update the status of the DisRequest to 'in_progress'
-        $disRequest->status = 'In Progress';
-        $disRequest->save(); // Save the updated status
-    
-        return redirect()->back()->with('success', 'این حواله قبلا برای درخواست دیگر استفاده شده است - درخواست شما به آن اضافه شد');
-   
+            // Find the DisRequest by ID
+      $disRequest = DisRequest::findOrFail($id);
+  
+      // Insert the havale_number into dis_request_havales table
+      $disRequestHavale = new DisRequestHavale();
+      $disRequestHavale->dis_request_id = $disRequest->id; // Associate it with the current request
+      $disRequestHavale->havale_number = $request->havale_number; // Insert havale number
+      $disRequestHavale->save(); // Save the new havale record
+  
+      // Update the status of the DisRequest to 'in_progress'
+      $disRequest->status = 'In Progress';
+      $disRequest->save(); // Save the updated status
+  
+      return redirect()->back()->with('success', 'این حواله قبلا برای درخواست دیگر استفاده شده است - درخواست شما به آن اضافه شد');
+ 
 
-            // If the havale number already exists, return an error message
-           // return redirect()->back()->with('error', 'این شماره حواله قبلاً ثبت شده است و نمی‌تواند دوباره ثبت شود.')
-                   //                ->withInput(); // This will make sure the input stays in the form.
-        }
+          // If the havale number already exists, return an error message
+         // return redirect()->back()->with('error', 'این شماره حواله قبلاً ثبت شده است و نمی‌تواند دوباره ثبت شود.')
+                 //                ->withInput(); // This will make sure the input stays in the form.
+      }
     
         // Find the DisRequest by ID
         $disRequest = DisRequest::findOrFail($id);
@@ -314,6 +312,7 @@ else
 
 
 
+
     public function addComment(Request $request, $id)
     {
         $disRequest = DisRequest::findOrFail($id);  // Get the DisRequest object
@@ -377,7 +376,6 @@ public function showCompletedRequest($id)
 
 public function personnelindex()
 {
-   
     $user = auth()->user(); // Logged-in user
     $childrenIds = $user->children()->pluck('user_id'); // Get children IDs
 
@@ -437,12 +435,8 @@ public function destroy($id)
 }
 
 
-
-
-
     public function personnelshow($id)
     {
-        
         // Fetch the request along with its details
         $request = DisRequest::with(['user.userdata.city', 'requestDetails.user.userdata.city'])
             ->findOrFail($id);
@@ -470,7 +464,6 @@ public function destroy($id)
 // }
 public function personelcompletedRequests(HavaleSyncService $havaleSync)
 {
-    
     $havaleSync->sync();
     $user = auth()->user(); // Logged-in user
     $childrenIds = $user->children()->pluck('user_id'); // Get children IDs
@@ -492,7 +485,7 @@ public function personelcompletedRequests(HavaleSyncService $havaleSync)
     foreach ($inProgressRequests as $request) {
         $request->shamsi_created_at = Jalalian::fromCarbon(\Carbon\Carbon::parse($request->created_at))->format('Y/m/d');
     }
-    
+
        // dd($inProgressRequests);
     // Fetch requests made by children with "Rejected" status
     $rejectedRequests = DisRequest::whereIn('user_id', $childrenIds)
@@ -738,7 +731,6 @@ public function showHavaleData($id)
         return redirect()->back()->with('error', 'مشکلی رخ داده است. لطفاً بعداً تلاش کنید.');
     }
 }
-
     
 
 

@@ -207,13 +207,13 @@ class PersonnelController extends Controller
                         ->toCarbon()
                         ->endOfDay();
                 
-                    // گرفتن حواله‌ها برای این ماه
-                    $havaleNumbersThisMonth = DisRequestHavale::whereIn('dis_request_id', $requestIds)
-                    ->whereBetween('created_at', [$startOfYear, $endOfYear]) // فیلتر سال جاری
+                   // گرفتن حواله‌ها برای این ماه
+                   $havaleNumbersThisMonth = DisRequestHavale::whereIn('dis_request_id', $requestIds)
+                   ->whereBetween('created_at', [$startOfYear, $endOfYear]) // فیلتر سال جاری
 
-                        ->where('status', 'Completed')
-                        ->whereBetween('date_target', [$startOfMonth, $endOfMonth])
-                        ->pluck('havale_number');
+                       ->where('status', 'Completed')
+                       ->whereBetween('date_target', [$startOfMonth, $endOfMonth])
+                       ->pluck('havale_number');
                 
                     // محاسبه مجموع متراژ حواله‌های این ماه
                     $totalRequestSizeForMonth = DB::connection('sqlsrv')

@@ -12,6 +12,8 @@ use Morilog\Jalali\Jalalian;
 use App\Services\HavaleSyncService;
 use Carbon\Carbon;
 use App\Models\UserTarget; // 👈 اینو اضافه کن
+use Morilog\Jalali\CalendarUtils;
+
 
 
 
@@ -604,6 +606,180 @@ public function reservedProductsReport(HavaleSyncService $havaleSync)
 }
 
 
+
+public function agentsPerformance(Request $request, HavaleSyncService $havaleSync)
+{
+    $havaleSync->sync();
+
+    $jalaliNow = Jalalian::now();
+
+    $year = $request->input('year', $jalaliNow->getYear());
+    $monthFilter = $request->input('month', null);
+
+    // ساخت بازه تاریخ شمسی
+    if ($monthFilter == '1-6') {
+        $start = Jalalian::fromFormat('Y-m-d', "$year-01-01");
+        $end = Jalalian::fromFormat('Y-m-d', "$year-06-31");
+    } elseif ($monthFilter == '7-12') {
+        $start = Jalalian::fromFormat('Y-m-d', "$year-07-01");
+        $end = Jalalian::fromFormat('Y-m-d', "$year-12-30");
+    } elseif ($monthFilter == 'spring') {
+        $start = Jalalian::fromFormat('Y-m-d', "$year-01-01");
+        $end = Jalalian::fromFormat('Y-m-d', "$year-03-31");
+    } elseif ($monthFilter == 'summer') {
+        $start = Jalalian::fromFormat('Y-m-d', "$year-04-01");
+        $end = Jalalian::fromFormat('Y-m-d', "$year-06-31");
+    } elseif ($monthFilter == 'autumn') {
+        $start = Jalalian::fromFormat('Y-m-d', "$year-07-01");
+        $end = Jalalian::fromFormat('Y-m-d', "$year-09-30");
+    } elseif ($monthFilter == 'winter') {
+        $start = Jalalian::fromFormat('Y-m-d', "$year-10-01");
+        $end = Jalalian::fromFormat('Y-m-d', "$year-12-30");
+    } elseif (is_numeric($monthFilter)) {
+        $start = Jalalian::fromFormat('Y-m-d', "$year-" . str_pad($monthFilter, 2, '0', STR_PAD_LEFT) . "-01");
+        $end = $start->addMonths(1)->subDays(1);
+    } else {
+        $start = Jalalian::fromFormat('Y-m-d', "$year-01-01");
+        $end = Jalalian::fromFormat('Y-m-d', "$year-12-30");
+    }
+
+    $startDate = $start->toCarbon()->startOfDay();
+    $endDate = $end->toCarbon()->endOfDay();
+
+    $agents = DB::table('users')
+        ->join('profiles', 'users.id', '=', 'profiles.user_id')
+        ->join('cities', 'profiles.city_id', '=', 'cities.id')
+        ->where('users.role', 'distributor')
+        ->select('users.id', 'users.name', 'cities.name as city_name')
+        ->get();
+
+    $agentLabels = [];
+    $completedMeters = [];
+    $approvedMeters = [];
+
+    foreach ($agents as $agent) {
+        $requestIds = DB::table('dis_requests')
+            ->where('user_id', $agent->id)
+            ->pluck('id');
+
+        if ($requestIds->isEmpty()) {
+            $agentLabels[] = $agent->name;
+            $completedMeters[] = 0;
+            $approvedMeters[] = 0;
+            continue;
+        }
+
+        // Completed
+        $completedHavaleNumbers = DB::table('dis_request_havales')
+            ->whereIn('dis_request_id', $requestIds)
+            ->where('status', 'Completed')
+            ->whereBetween('date_target', [$startDate, $endDate])
+            ->pluck('havale_number');
+
+        $completedTotalMeter = 0;
+        if (!$completedHavaleNumbers->isEmpty()) {
+            $completedTotalMeter = DB::connection('sqlsrv')
+                ->table('vw_HavaleData')
+                ->whereIn('havale', $completedHavaleNumbers)
+                ->sum('product_MR');
+        }
+
+        // Approved
+        $approvedHavaleNumbers = DB::table('dis_request_havales')
+            ->whereIn('dis_request_id', $requestIds)
+            ->where('status', 'Approved')
+            ->whereBetween('created_at', [$startDate, $endDate])
+
+            ->pluck('havale_number');
+
+        $approvedTotalMeter = 0;
+        if (!$approvedHavaleNumbers->isEmpty()) {
+            $approvedTotalMeter = DB::connection('sqlsrv')
+                ->table('vw_HavaleData')
+                ->whereIn('havale', $approvedHavaleNumbers)
+                ->sum('product_MR');
+        }
+
+        $agentLabels[] = $agent->name;
+        $completedMeters[] = round($completedTotalMeter, 2);
+        $approvedMeters[] = round($approvedTotalMeter, 2);
+    }
+
+
+
+$monthlyLabels = [];
+$lineChartData = []; // نماینده => [ماه1 => متر، ماه2 => متر، ...]
+
+$monthsBack = 6; // به اضافه ماه جاری میشه ۶ ماه
+$currentJalali = Jalalian::now();
+
+for ($i = $monthsBack; $i >= 0; $i--) {
+    $jMonth = Jalalian::fromCarbon($currentJalali->toCarbon()->copy()->subMonths($i));
+    $monthLabel = CalendarUtils::convertNumbers("{$jMonth->format('Y')}/{$jMonth->format('m')}");
+    $monthlyLabels[] = $monthLabel;
+
+    $startOfMonth = Jalalian::fromFormat('Y-m-d', $jMonth->format('Y-m') . '-01')->toCarbon()->startOfDay();
+    $endOfMonth = Jalalian::fromFormat('Y-m-d', $jMonth->format('Y-m') . '-' . $jMonth->getMonthDays())->toCarbon()->endOfDay();
+
+    foreach ($agents as $agent) {
+        $agentName = $agent->name;
+
+        $requestIds = DB::table('dis_requests')
+            ->where('user_id', $agent->id)
+            ->pluck('id');
+
+        if ($requestIds->isEmpty()) {
+            $lineChartData[$agentName][$monthLabel] = 0;
+            continue;
+        }
+
+        $completedHavaleNumbers = DB::table('dis_request_havales')
+            ->whereIn('dis_request_id', $requestIds)
+            ->where('status', 'Completed')
+            ->whereBetween('date_target', [$startOfMonth, $endOfMonth])
+            ->pluck('havale_number');
+
+        $monthlyTotalMeter = 0;
+        if (!$completedHavaleNumbers->isEmpty()) {
+            $monthlyTotalMeter = DB::connection('sqlsrv')
+                ->table('vw_HavaleData')
+                ->whereIn('havale', $completedHavaleNumbers)
+                ->sum('product_MR');
+        }
+
+        $lineChartData[$agentName][$monthLabel] = round($monthlyTotalMeter, 2);
+    }
+}
+
+
+$lineChartColors = [];
+$hueStep = 360 / max(count($agents), 1); // اختلاف رنگ بین هر نماینده
+
+foreach ($agents as $index => $agent) {
+    $hue = ($index * $hueStep) % 460;
+    $lineChartColors[] = "hsl($hue, 70%, 50%)";
+}
+
+
+$marketShareData = [];
+foreach ($agentLabels as $index => $agentName) {
+    $marketShareData[$agentName] = $completedMeters[$index]; // همون متراژ تکمیل‌شده
+}
+
+
+
+return view('reports.agents-performance', [
+    'agentLabels' => $agentLabels,
+    'completedMeters' => $completedMeters,
+    'approvedMeters' => $approvedMeters,
+    'currentYear' => $year,
+    'currentMonth' => $monthFilter,
+    'monthlyLabels' => $monthlyLabels,
+    'lineChartData' => $lineChartData,
+    'lineChartColors' => $lineChartColors,
+    'marketShareData' => $marketShareData,
+]);
+}
 
 
 

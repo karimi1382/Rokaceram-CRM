@@ -26,6 +26,7 @@ use App\Services\HavaleSyncService;
 
 
 
+
 class UserController extends Controller
 {
     public function index()
@@ -153,8 +154,8 @@ class UserController extends Controller
     
         // بروزرسانی name, email, role
         $user->update($request->only('name', 'email', 'role'));
-    
-
+       
+       
         if ($request->has('city_id')) {
             $userData = $user->userData;
         
@@ -163,6 +164,7 @@ class UserController extends Controller
                 $userData->save();
             } 
         }
+
 
         // اگر پسورد جدید وارد شده باشد، پسورد را بروزرسانی کن
         if ($request->filled('password')) {
@@ -392,6 +394,159 @@ public function showUserHavales(Request $request, $userId)
     
     
     
+
+
+
+public function users_with_parents(Request $request, HavaleSyncService $havaleSync)
+{
+    $havaleSync->sync();
+
+    try {
+        \DB::connection('sqlsrv')->getPdo(); // تست اتصال
+
+        $now = Jalalian::now();
+        $shamsiYear = $request->input('year', $now->getYear());
+        $shamsiMonth = str_pad($request->input('month', $now->getMonth()), 2, '0', STR_PAD_LEFT);
+
+        $startDate = Jalalian::fromFormat('Y/m/d', "$shamsiYear/$shamsiMonth/01")->toCarbon()->startOfDay();
+        $endDate = Jalalian::fromFormat('Y/m/d', "$shamsiYear/$shamsiMonth/01")->addMonths(1)->toCarbon()->startOfDay();
+
+        $yearStart = Jalalian::fromFormat('Y/m/d', "$shamsiYear/01/01")->toCarbon()->startOfDay();
+        $yearEnd = Jalalian::fromFormat('Y/m/d', "$shamsiYear/12/29")->toCarbon()->endOfDay();
+
+        $distributorUsers = User::where('role', 'distributor')->get();
+
+        // دریافت همه داده‌ها بدون فیلتر زمانی
+        $havaleUserMap = DB::table('dis_requests')
+            ->join('dis_request_havales', 'dis_requests.id', '=', 'dis_request_havales.dis_request_id')
+            ->whereIn('dis_requests.user_id', $distributorUsers->pluck('id'))
+            ->whereIn('dis_request_havales.status', ['approved', 'completed'])
+            ->select(
+                'dis_requests.user_id',
+                'dis_request_havales.havale_number',
+                'dis_request_havales.status',
+                'dis_request_havales.created_at',
+                'dis_request_havales.date_target'
+            )
+            ->get();
+
+        // فیلتر دستی بر اساس نوع تاریخ
+        $filteredHavales = $havaleUserMap->filter(function ($item) use ($startDate, $endDate) {
+            $status = strtolower(trim($item->status));
+            $date = ($status === 'completed' && $item->date_target) ? $item->date_target : $item->created_at;
+            return $date >= $startDate && $date < $endDate;
+        });
+
+        $havaleNumbers = $filteredHavales->pluck('havale_number')->unique();
+
+        $havaleDataRaw = DB::connection('sqlsrv')
+            ->table('vw_HavaleData')
+            ->select('havale', DB::raw('SUM(product_MR) as request_size'))
+            ->whereIn('havale', $havaleNumbers)
+            ->groupBy('havale')
+            ->get()
+            ->keyBy('havale');
+
+        $userHavaleStats = [];
+
+        foreach ($filteredHavales as $row) {
+            $userId = $row->user_id;
+            $status = strtolower(trim($row->status));
+            $havaleNumber = $row->havale_number;
+
+            if (!isset($havaleDataRaw[$havaleNumber])) continue;
+
+            $requestSize = floatval($havaleDataRaw[$havaleNumber]->request_size);
+
+            if (!isset($userHavaleStats[$userId])) {
+                $userHavaleStats[$userId] = ['approved' => 0, 'completed' => 0];
+            }
+
+            if ($status === 'approved') {
+                $userHavaleStats[$userId]['approved'] += $requestSize;
+            } elseif ($status === 'completed') {
+                $userHavaleStats[$userId]['completed'] += $requestSize;
+            }
+        }
+
+        // سالانه همچنان با created_at باقی می‌ماند (یا می‌خواهی اونم مثل بالا بشه بگو)
+        $yearHavaleMap = DB::table('dis_requests')
+            ->join('dis_request_havales', 'dis_requests.id', '=', 'dis_request_havales.dis_request_id')
+            ->whereIn('dis_requests.user_id', $distributorUsers->pluck('id'))
+            ->whereIn('dis_request_havales.status', ['approved', 'completed'])
+            ->whereBetween('dis_request_havales.created_at', [$yearStart, $yearEnd])
+            ->select('dis_requests.user_id', 'dis_request_havales.havale_number', 'dis_request_havales.status')
+            ->get();
+
+        $yearHavaleNumbers = $yearHavaleMap->pluck('havale_number')->unique();
+
+        $yearHavaleDataRaw = DB::connection('sqlsrv')
+            ->table('vw_HavaleData')
+            ->select('havale', DB::raw('SUM(product_MR) as request_size'))
+            ->whereIn('havale', $yearHavaleNumbers)
+            ->groupBy('havale')
+            ->get()
+            ->keyBy('havale');
+
+        $userYearStats = [];
+
+        foreach ($yearHavaleMap as $row) {
+            $userId = $row->user_id;
+            $status = strtolower(trim($row->status));
+            $havaleNumber = $row->havale_number;
+
+            if (!isset($yearHavaleDataRaw[$havaleNumber])) continue;
+
+            $requestSize = floatval($yearHavaleDataRaw[$havaleNumber]->request_size);
+
+            if (!isset($userYearStats[$userId])) {
+                $userYearStats[$userId] = ['approved' => 0, 'completed' => 0];
+            }
+
+            if ($status === 'approved') {
+                $userYearStats[$userId]['approved'] += $requestSize;
+            } elseif ($status === 'completed') {
+                $userYearStats[$userId]['completed'] += $requestSize;
+            }
+        }
+
+        $userDetails = $distributorUsers->map(function ($user) use ($userHavaleStats, $userYearStats, $shamsiYear, $shamsiMonth) {
+            $personelId = UserData::where('user_id', $user->id)->pluck('personel_id')->first();
+            $personelName = User::where('id', $personelId)->pluck('name')->first();
+            $userName = $user->name;
+
+            $target = DB::table('user_targets')
+                ->where('user_id', $user->id)
+                ->where('year', $shamsiYear)
+                ->where('month', $shamsiMonth)
+                ->pluck('target')
+                ->first();
+
+            return [
+                'user_id' => $user->id,
+                'user_name' => $userName,
+                'personel_id' => $personelId,
+                'personel_name' => $personelName,
+                'approved_request_size' => $userHavaleStats[$user->id]['approved'] ?? 0,
+                'completed_request_size' => $userHavaleStats[$user->id]['completed'] ?? 0,
+                'approved_year_total' => $userYearStats[$user->id]['approved'] ?? 0,
+                'completed_year_total' => $userYearStats[$user->id]['completed'] ?? 0,
+                'target' => $target ?? 0,
+            ];
+        });
+
+        return view('admin.users_with_parents', compact('userDetails', 'shamsiYear', 'shamsiMonth'));
+
+    } catch (\Exception $e) {
+        $userDetails = null;
+        $shamsiYear = null;
+        $shamsiMonth = null;
+        $error = 'ارتباط با دیتابیس برقرار نیست. لطفاً اتصال خود را بررسی کنید.';
+
+        return view('admin.users_with_parents', compact('userDetails', 'shamsiYear', 'shamsiMonth', 'error'));
+    }
+}
+
 
 
 

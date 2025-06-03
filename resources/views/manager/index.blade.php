@@ -118,13 +118,6 @@
             <div class="card-body">
                 <h5 class="card-title">متراژ فروخته شده به تفکیک ماه</h5>
                 <hr>
-
-
-                
-
-
-
-
                 <canvas id="monthlySalesChart"></canvas>
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {

@@ -214,9 +214,8 @@ Route::get('dis_requests', [DisRequestController::class, 'index'])->name('dis_re
     // Route::put('/dis_requests/{id}/update_status', [DisRequestController::class, 'updateStatus'])->name('dis_requests.update_status');
     Route::get('/dis_requests/{id}', [DisRequestController::class, 'personnelshow'])->name('dis_requests.show');
     Route::get('/requests', [DisRequestController::class, 'personnelindex'])->name('requests.personeelindex');
+    
     Route::get('/requests/{id}', [DisRequestController::class, 'show'])->name('requests.show');
-    Route::delete('/dis_requests/{id}', [DisRequestController::class, 'destroy'])->name('dis_requests.delete');
-
     Route::get('/user/{id}/children', [UserController::class, 'showChildren'])->name('user.children');
     Route::get('/user/{userId}/havales', [UserController::class, 'showUserHavales'])->name('user.havales');
 
@@ -231,7 +230,8 @@ Route::middleware(['auth', 'role:distributor'])->group(function () {
     Route::get('/completed-requests/{id}', [DisRequestController::class, 'showCompletedRequest'])->name('dis_requests.completed.show');
     Route::get('/dis_requests', [DisRequestController::class, 'index'])->name('dis_requests.index');
     Route::get('/dis_requests/create', [DisRequestController::class, 'create'])->name('dis_requests.create');
-    
+    Route::delete('/dis_requests/{id}', [DisRequestController::class, 'destroy'])->name('dis_requests.delete');
+
 
     Route::post('/dis_requests', [DisRequestController::class, 'store'])->name('dis_requests.store');
     Route::get('/dis_requests/{id}', [DisRequestController::class, 'show'])->name('dis_requests.show');
@@ -274,9 +274,11 @@ Route::middleware(['auth', 'role:manager'])->group(function () {
     Route::delete('/distributor/{id}/target/{targetId}', [UserController::class, 'deleteTargetDistributor'])
     ->name('distributor.deleteTarget');
 
+    
 ////////////////////// گزارشات
 
-    Route::get('/report/reserved-products', [ManagerController::class, 'reservedProductsReport'])->name('report.reserved-products');
+Route::get('/report/reserved-products', [ManagerController::class, 'reservedProductsReport'])->name('report.reserved-products');
+Route::get('/manager/agents-performance', [App\Http\Controllers\ManagerController::class, 'agentsPerformance'])->name('report.agents.performance');
 
 
 });

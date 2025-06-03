@@ -30,7 +30,7 @@
             <p class="pt-3">بعد از مهلت مشخص شده در صورت عدم تایید مالی رزرو لغو شده و کالاهای رزرو شده به موجودی باز خواهد گشت</p>
         </div>
         @endif
-<h2 class="pb-4">نام مشتری : {{$disRequest->user->name}}</h2>
+        <h2 class="pb-4">نام مشتری : {{$disRequest->user->name}}</h2>
         <!-- First Data (havale, mali, tavali) - 3 Columns -->
         <div class="row mb-4">
             <div class="col-md-4">

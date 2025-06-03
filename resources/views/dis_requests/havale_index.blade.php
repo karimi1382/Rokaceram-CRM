@@ -54,14 +54,14 @@
 
             <div class="table-responsive">
                 <!-- Search Inputs -->
-                {{-- <div class="row mb-3">
+                <!-- <div class="row mb-3">
                     <div class="col-md-3">
                         <input type="text" id="searchName" class="form-control" placeholder="جستجو بر اساس نام نماینده">
                     </div>
                     <div class="col-md-3">
                         <input type="text" id="searchStatus" class="form-control" placeholder="جستجو بر اساس وضعیت درخواست">
                     </div>
-                </div> --}}
+                </div> -->
 
                 <table class="table table-bordered">
                     <thead>

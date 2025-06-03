@@ -113,7 +113,9 @@
                 </thead>
                 <tbody id="product-list">
                     <?php $n=0 ?>
+                   
                     @foreach ($products as $product)
+                    @if($product->color_code != 'CL000')
                     @if($product->inventory > 23)
                     <?php $n++ ?>
                         <tr>
@@ -125,18 +127,15 @@
                             <td>{{ $product->color }}</td>
                             <td>{{ $product->color_code }}</td>
                             <td class="inventory">
-                              
-                                    @if($product->inventory > 1000)
-                                        @if($product->degree <> '4')
-                                            < 1000
-                                        @else
-                                            {{ number_format($product->inventory, 2) }}
-                                        @endif                                 
+                                @if($product->inventory > 1000)
+                                    @if($product->degree <> '4')
+                                        < 1000
                                     @else
-                                    {{ number_format($product->inventory, 2) }}
+                                        {{ number_format($product->inventory, 2) }}
                                     @endif
-                              
-
+                                @else 
+                                {{ number_format($product->inventory, 2) }}
+                                @endif
                             </td>
                              @if(auth()->user()->role != "manager")
                     <td style="">
@@ -147,6 +146,7 @@
                     </td>
                  @endif
                         </tr>
+                        @endif
                         @endif
                     @endforeach
                 </tbody>

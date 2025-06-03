@@ -66,7 +66,12 @@
             <div class="side-item-container hide animated">
                 <li class="side-item"><a href="{{ route('report.reserved-products') }}" class="fnt-mxs"><i class="fas fa-angle-right mr-2"></i>   رزروی های موقت </a></li>
             </div>
+            <div class="side-item-container hide animated">
+                <li class="side-item"><a href="{{ route('report.agents.performance') }}" class="fnt-mxs"><i class="fas fa-angle-right mr-2"></i>  عملکرد نمایندگان </a></li>
+            </div>
         </ul>
+
+
 
 
 
