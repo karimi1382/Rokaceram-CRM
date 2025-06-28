@@ -44,6 +44,36 @@
                 <!-- <li class="side-item"><a href="./sidebar.html" class="fnt-mxs"><i class="fas fa-angle-right mr-2"></i>ساید بار</a></li> -->
             </div>
         </ul>
+
+
+
+        <ul class="side a-collapse short">
+            <a class="ul-text  fnt-mxs"><i class="fas fa-cog mr-1"></i> شکایت ها
+                <!-- <span	class="badge badge-success">4</span> -->
+                <i class="fas fas fa-chevron-down arrow"></i></a>
+            <div class="side-item-container hide animated">
+                <li class="side-item">
+                    <a href="{{ route('complaints.create') }}" class="fnt-mxs">
+                        <i class="fas fa-angle-right mr-2"></i> ثبت شکایت جدید
+                    </a>
+                </li>
+                <li class="side-item">
+                    <a href="{{ route('complaints.index') }}" class="fnt-mxs">
+                        <i class="fas fa-angle-right mr-2"></i> مدیریت شکایت ها
+                    </a>
+                </li>
+                <li class="side-item">
+                    <a href="{{ route('complaints.completed') }}" class="fnt-mxs">
+                        <i class="fas fa-angle-right mr-2"></i> شکایت های تکمیل شده
+                    </a>
+                </li>
+            
+            </div>
+        </ul>
+
+
+
+
         <!-- <ul class="side a-collapse short">
             <a class="ul-text  fnt-mxs"><i class="fas fa-cog mr-1"></i> شکایت ها
                 <i class="fas fas fa-chevron-down arrow"></i></a>

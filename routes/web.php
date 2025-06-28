@@ -15,7 +15,7 @@ use App\Http\Controllers\LoginPageController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DisRequestController;
 use App\Http\Controllers\ProductUploadController;
-
+use App\Http\Controllers\ComplaintController;
 use App\Exports\ProductsExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -281,6 +281,19 @@ Route::get('/report/reserved-products', [ManagerController::class, 'reservedProd
 Route::get('/manager/agents-performance', [App\Http\Controllers\ManagerController::class, 'agentsPerformance'])->name('report.agents.performance');
 
 
+// Route::get('complaints/completed', [ComplaintController::class, 'completed'])->name('complaints.completed');
+// همیشه اینو بیار آخر:
+Route::resource('manager-complaints', ComplaintController::class)->parameters([
+    'manager-complaints' => 'complaint',
+]);
+
+Route::get('manager/complaints', [ComplaintController::class, 'index'])->name('manager.complaints.index');
+Route::get('manager/complaints/completed', [ComplaintController::class, 'completed'])->name('manager.complaints.completed');
+Route::get('manager/complaints/{complaint}', [ComplaintController::class, 'show'])->name('manager.complaints.show');
+// و غیره...
+
+
+
 });
 
 
@@ -293,7 +306,14 @@ Route::middleware(['auth', 'role:personnel|distributor'])->group(function () {
     Route::get('/personelcompleted-requests', [DisRequestController::class, 'personelcompletedRequests'])->name('dis_requests.personelcompleted');
     Route::get('/completed-requests', [DisRequestController::class, 'completedRequests'])->name('dis_requests.completed');
 
-
+    Route::get('/complaints/havale-search', [ComplaintController::class, 'havaleSearch'])->name('havale-search');
+    Route::get('complaints/completed', [ComplaintController::class, 'completed'])->name('complaints.completed');
+    Route::post('complaints/{complaint}/add-comment', [ComplaintController::class, 'addComment'])->name('complaints.addComment');
+    Route::delete('complaints/comment/{id}', [ComplaintController::class, 'deleteComment'])->name('complaints.deleteComment');
+    
+    // همیشه اینو بیار آخر:
+    Route::resource('complaints', ComplaintController::class);
+    
 
 });
 
