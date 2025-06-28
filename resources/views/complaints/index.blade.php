@@ -73,6 +73,13 @@
 
                                             @if (auth()->user()->role == 'personnel')
                                                 <a href="{{ route('complaints.edit', $complaint->id) }}" class="btn btn-sm btn-outline-primary d-inline-block me-1">ویرایش</a>
+                                                @if ($complaint->status == 'در انتظار')
+                                                <form action="{{ route('complaints.destroy', $complaint->id) }}" method="POST" class="d-inline-block">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('آیا مطمئنید؟')">حذف</button>
+                                                </form>
+                                                @endif
                                             @endif
                                     
                                             @if (auth()->user()->role == 'distributor' && $complaint->status == 'در انتظار')
