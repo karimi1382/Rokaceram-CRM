@@ -132,12 +132,22 @@
     
             $progress = ($userTarget != 0) ? round(($soldMeterInThisMonth * 100) / $userTarget) : 0;
         @endphp
-    
+        @php
+            $monthNames = [
+                1 => 'فروردین', 2 => 'اردیبهشت', 3 => 'خرداد', 4 => 'تیر',
+                5 => 'مرداد', 6 => 'شهریور', 7 => 'مهر', 8 => 'آبان',
+                9 => 'آذر', 10 => 'دی', 11 => 'بهمن', 12 => 'اسفند'
+            ];
+
+            $monthName = $monthNames[$currentMonth] ?? '---';
+            $formattedSoldMeter = number_format($monthlyData[$currentMonth - 1] ?? 0, 2);
+        @endphp
         <div class="alert alert-info">
             تارگت ماه جاری ({{ $monthName }}) شما: {{ number_format($userTarget) }}
             /
             میزان تارگت محقق شده‌ی ماه جاری شما: {{ $formattedSoldMeter }}
         </div>
+
     
         <div class="progress mt-3">
             <div class="progress-bar progress-bar-striped progress-bar-animated text-center" 

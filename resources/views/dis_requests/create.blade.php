@@ -1,70 +1,83 @@
 <x-app-layout>
+    <style>
+        body {
+            background: linear-gradient(to right, #f3f4f6, #e2e8f0);
+            min-height: 100vh;
+        }
 
-    <div class="container-fluid ">
-    
-        <!-- content -->
-        <!-- breadcrumb -->
-    
-        <div class="row  m-1 pb-4 mb-3 ">
-            <div class="col-xs-12  col-sm-12  col-md-12  col-lg-12 p-2">
-                <div class="page-header breadcrumb-header ">
-                    <div class="row align-items-end ">
-                        <div class="col-lg-8">
-                            <div class="page-header-title text-left-rtl">
-                                <div class="d-inline">
-                                    <h3 class="lite-text ">ثبت درخواست محصول</h3>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-4">
-                            <ol class="breadcrumb float-sm-right">
-                                <li class="breadcrumb-item "><a href="#"><i class="fas fa-home"></i></a></li>
-                                <li class="breadcrumb-item active">داشبورد</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
+        .request-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 10px;
+            padding-bottom: 60px;
+        }
+
+        .request-container {
+            background-color: #ffffff;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .request-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #444;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .form-control:focus {
+            box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.25);
+        }
+
+        table th, table td {
+            vertical-align: middle !important;
+        }
+    </style>
+
+    <div class="container-fluid request-wrapper">
+        <div class="request-container">
+
+            <div class="request-title">
+                ثبت درخواست 
             </div>
-        </div>
-    
-        <!-- Success or Error Messages -->
-        <div class="col-md-12">
-            @if(session()->has('success'))
-                <div class="alert alert-success">
-                    {{ session('success') }}
-                </div>
-            @endif
-    
-            @if($errors->any())
-                <div class="alert alert-danger">
-                    <ul>
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-        </div>
-    
-        <div class="row m-2 mb-1 bg-light p-5 rounded row justify-content-md-center">
-            
-            <form action="{{ route('dis_requests.store') }}" method="POST" class="col-md-6">
+
+            <form action="{{ route('dis_requests.multiStore') }}" method="POST">
                 @csrf
-                <div class="row">
-                    <div class="form-group mb-3 col">
-                        <select name="product_id" id="product_id" class="form-control" required style="direction:ltr; display:none;">
-                            <option value="{{ $product->id }}" selected>
-                                {{ $product->id_number }} - {{ $product->name }} - {{ $product->degree }} - {{ $product->size }} - {{ $product->model }} - {{ $product->color }} - {{ $product->color_code }}
-                            </option>
-                        </select>
-                        <p style="direction:ltr;font-weight: bold;color:green" class="text-left">
-                            {{$product->id_number}} - {{$product->name}} - {{$product->degree}} - {{$product->size}} - {{$product->model}} - {{$product->color}} - {{$product->color_code}}
-                        </p>
-                    </div>
+
+                <div class="table-responsive mb-4">
+                    <table class="table table-striped table-hover table-bordered text-center align-middle">
+                        <thead class="thead-light bg-light">
+                            <tr>
+                                <th>محصول</th>
+                                <th>متراژ درخواستی</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($products as $product)
+                                <tr>
+                                    <td class="text-right">
+                                        <strong>{{ $product->id_number }}</strong> - {{ $product->name }} - {{ $product->degree }} - {{ $product->size }} - {{ $product->model }} - {{ $product->color }} - {{ $product->color_code }}
+                                        <input type="hidden" name="products[{{ $loop->index }}][id_number]" value="{{ $product->id }}">
+                                    </td>
+                                    <td style="max-width: 150px;">
+                                        <input type="number" step="0.01" name="products[{{ $loop->index }}][request_size]" class="form-control text-center" required>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-    
+
                 @if(auth()->user()->role == 'personnel')
-                    <div class="form-group">
+                    <div class="form-group mb-3">
                         <label for="distributor">انتخاب نماینده</label>
                         <select name="distributor_id" id="distributor" class="form-control">
                             @foreach ($distributors as $distributor)
@@ -73,37 +86,30 @@
                         </select>
                     </div>
                 @endif
-    
-                <input type="hidden" name="request_type" value="{{auth()->user()->role}}">
+
+                <input type="hidden" name="request_type" value="{{ auth()->user()->role }}">
                 <input type="hidden" name="status" value="Pending">
-    
+
                 <div class="row">
-                    <div class="form-group mb-3 col">
-                        <label for="request_size">متراژ درخواستی</label>
-                        <input type="number" step="0.01" name="request_size" id="request_size" class="form-control" required>
-                    </div>
-    
-                    <div class="form-group mb-3 col">
+                    <div class="form-group mb-3 col-md-6">
                         <label for="tel_number">شماره تماس هماهنگی</label>
                         <input type="text" name="tel_number" id="tel_number" class="form-control" required>
                     </div>
-    
-                    <div class="form-group mb-3 col">
-                        <label for="request_owner">نام و نام خانوادگی درخواست کننده</label>
+                    <div class="form-group mb-3 col-md-6">
+                        <label for="request_owner">نام و نام خانوادگی درخواست‌کننده</label>
                         <input type="text" name="request_owner" id="request_owner" class="form-control" required>
                     </div>
                 </div>
-    
-                <div class="form-group mb-3">
+
+                <div class="form-group mb-4">
                     <label for="address">آدرس</label>
                     <textarea name="address" id="address" class="form-control" rows="3" required></textarea>
                 </div>
-    
-                <button type="submit" class="btn btn-primary">ثبت درخواست</button>
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary px-5">ثبت همه درخواست‌ها</button>
+                </div>
             </form>
-    
         </div>
     </div>
-    
-    </x-app-layout>
-    
+</x-app-layout>

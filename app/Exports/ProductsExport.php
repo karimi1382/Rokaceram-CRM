@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Exports;
 
 use App\Models\Product;
@@ -6,7 +7,6 @@ use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Illuminate\Support\Facades\DB;
-
 
 class ProductsExport implements FromCollection, WithHeadings, WithMapping
 {
@@ -46,6 +46,10 @@ class ProductsExport implements FromCollection, WithHeadings, WithMapping
             });
         }
         
+        // **NEW** Add condition to exclude products with color_code 'CL000'
+        $query->where('color_code', '!=', 'CL000');
+        $query->where('Inventory', '>', '0');
+        
         // Get the selected columns
         $products = $query->get([
             'id_number', 'name', 'degree', 'size', 'model', 'color', 'color_code', 'inventory'
@@ -54,7 +58,6 @@ class ProductsExport implements FromCollection, WithHeadings, WithMapping
         return $products;
     }
     
-
     /**
      * Define the column headings.
      */

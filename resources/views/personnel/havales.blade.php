@@ -76,7 +76,8 @@
                                         @endif
                                     </td>
                                     <td>{{ $info['request_size'] }} متر</td>
-                                    <td>{{ $info['created_at'] }}</td> <!-- نمایش تاریخ جلالی -->
+                                    <td>{{ $info['date'] }}</td>
+
 
                                 </tr>
                                 @endif

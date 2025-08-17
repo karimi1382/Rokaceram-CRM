@@ -109,13 +109,11 @@
                         <tr>
                             <th>نام سرپرست</th>
                             <th>تعداد نماینده</th>
-                            <th>متراژ رزرو شده</th>
-                            <th>متراژ ارسال شده</th>
-                            <th>هدف</th>
-                            <th>محقق شده</th>
-                            <th>کل متراژ بارگیری شده سال جاری</th>
-
-                            <th style="width:50px"></th>
+                            <th>متراژ رزرو شده ( متر مربع )</th>
+                            <th>متراژ ارسال شده ( متر مربع )</th>
+                            <th>هدف ( متر مربع )</th>
+                            <th> درصد تحقق هدف</th>
+                            <th>کل متراژ بارگیری شده سال جاری ( متر مربع )</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -123,20 +121,13 @@
                             <tr>
                                 <td>{{ $item['personnel_name'] }}</td>
                                 <td>{{ $item['children_count'] }}</td>
-                                <td>{{ number_format($item['approved_total'], 2, '/', ) }} متر</td>
-                                <td>{{ number_format($item['completed_total'], 2, '/', ) }} متر</td>
-                                <td>{{ number_format($item['target'], 0) }} متر</td>
+                                <td>{{ number_format(ceil($item['approved_total']), 0) }}</td>
+                                <td>{{ number_format(ceil($item['completed_total']), 0) }}</td>
+                                <td>{{ number_format(ceil($item['target']), 0) }}</td>
                                 <td>
-                                    {{ $item['target'] > 0 ? number_format(($item['completed_total'] * 100) / $item['target'], 2) : 0 }}%
+                                    {{ $item['target'] > 0 ? number_format(ceil(($item['completed_total'] * 100) / $item['target']), 2) : 0 }}%
                                 </td>
-                                <td>{{ number_format($item['yearly_completed_total'], 2, '/', ) }} متر</td>
-
-                                <td>
-                                    <a href="{{ route('ManagerController.personneltargetshowdetile', ['id' => $item['personnel_id']]) }}?year={{ $shamsiYear }}&month={{ $shamsiMonth }}" class="btn btn-warning">
-                                        جزئیات
-                                    </a>
-                                    
-                                                                    </td>
+                                <td>{{ number_format(ceil($item['yearly_completed_total']), 0) }}</td>
                             </tr>
                         @empty
                             <tr>

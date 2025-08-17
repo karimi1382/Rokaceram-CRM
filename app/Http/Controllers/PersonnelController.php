@@ -45,11 +45,37 @@ class PersonnelController extends Controller
             ->pluck('id');
 
         // مرحله 4: شمارش حواله‌هایی که وضعیتشون "در حال پیشرفت" هست
-        $In_Progress_request = \DB::table('dis_request_havales')
-            ->whereIn('dis_request_id', $requestIds)
-            ->where('status', 'In Progress')
-            ->count();
+        $In_Progress_request = 0;
 
+        // گرفتن شماره‌های havale_number از دیتابیس خود برای `dis_request_id`های خاص
+        $havaleNumbers = DisRequestHavale::whereIn('dis_request_id', $requestIds)
+            ->whereBetween('created_at', [$startOfYear, $endOfYear])
+            ->where('status', 'In Progress')
+            ->pluck('havale_number'); // فقط شماره‌ها را می‌گیریم
+        
+        // یکبار کانکشن به دیتابیس مرجع می‌زنیم
+        try {
+            $havaleDataFromSql = DB::connection('sqlsrv')->table('vw_HavaleData')->select('havale')->whereIn('havale', $havaleNumbers)->get();
+        
+            // بررسی اینکه آیا داده‌ها برگشت داده شدند یا نه
+        
+        
+            // تبدیل داده‌ها به یک آرایه ساده برای جستجو سریع
+            $existingHavales = $havaleDataFromSql->pluck('havale')->toArray();
+        
+            // شمارش تعداد درخواست‌ها که در دیتابیس مرجع موجود است
+            foreach ($havaleNumbers as $havaleNumber) {
+                if (in_array($havaleNumber, $existingHavales)) {
+                    $In_Progress_request++;
+                }
+            }
+        
+        } catch (\Exception $e) {
+            // در صورتی که مشکلی در اتصال به دیتابیس مرجع باشد
+            return redirect()->back()->with('error', 'ارتباط با دیتابیس مرجع موقتا قطع شده است.');
+        }
+        
+    
             // گرفتن شماره حواله‌هایی که وضعیتشون Approved هست
         $Approved_request_numbers = \DB::table('dis_request_havales')
         ->whereIn('dis_request_id', $requestIds)

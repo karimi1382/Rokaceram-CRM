@@ -30,7 +30,9 @@
                         <tr>
                             <th>ردیف</th>
                             <th>نام نماینده</th>
-                            <th>نام شهر</th>
+                            <th>نام استان</th>
+                            <th>نام شهرستان</th>
+                            <th>نام کشور</th>
                             <th>شماره حواله</th>
                             <th>وضعیت درخواست</th>
                             <th>مهلت تایید مالی</th>
@@ -43,35 +45,40 @@
                         @foreach ($uniqueRequests as $filePath => $requestsForFile)
                         @php $request = $requestsForFile->first(); @endphp
                         @if($request->status == 'In Progress')
-                            <tr>
-                                <td>{{ ++$n }}</td>
-                                <td>{{ $request->user_name }}</td> {{-- از select در کنترلر گرفتیم --}}
-                                <td>{{ $request->city_name ?? '-' }}</td> {{-- بعداً باید در کنترلر اضافه بشه --}}
-                                <td>{{ $request->havale_number }}</td>
-                                <td>
-                                    @if($request->status == 'In Progress')
-                                        رزرو شده موقت - در انتظار تایید مالی
-                                    @elseif($request->status == 'Approved')
-                                        در انتظار بارگیری
-                                    @elseif($request->status == 'Completed')
-                                        تکمیل شده
-                                    @endif
-                                </td>
-                                <td>
-                                    @if($request->status == 'In Progress')
-                                        @php
-                                            $remainingDays = $remainingDaysArray[$request->id] ?? null;
-                                        @endphp
-                                        {{ $remainingDays !== null ? $remainingDays . ' روز' : 'تایید شده' }}
-                                    @else
-                                        تایید شده
-                                    @endif
-                                </td>
-                                <td>{{ $request->jalali_created_at }}</td>
-                                <td>
-                                    <a href="{{ route('dis_requests.havale_data', $request->havale_number) }}" class="btn btn-info">مشاهده جزئیات</a>
-                                </td>
-                            </tr>
+                            @if( $remainingDaysArray[$request->id] != 0)
+                                <tr>
+                                    <td>{{ ++$n }}</td>
+                                    <td>{{ $request->user_name }}</td> {{-- از select در کنترلر گرفتیم --}}
+                                    <td>{{ $request->city_name ?? '-' }}</td> {{-- بعداً باید در کنترلر اضافه بشه --}}
+                                    <td>{{ $request->city_state ?? '-' }}</td> {{-- بعداً باید در کنترلر اضافه بشه --}}
+                                    <td>{{ $request->city_country ?? '-' }}</td> {{-- بعداً باید در کنترلر اضافه بشه --}}
+                                    <td>{{ $request->havale_number }}</td>
+                                    <td>
+                                        @if($request->status == 'In Progress')
+                                            رزرو شده موقت - در انتظار تایید مالی
+                                        @elseif($request->status == 'Approved')
+                                            در انتظار بارگیری
+                                        @elseif($request->status == 'Completed')
+                                            تکمیل شده
+                                        @endif
+                                    </td>
+                                    <td>
+                                        
+                                        @if($request->status == 'In Progress' )
+                                            @php
+                                                $remainingDays = $remainingDaysArray[$request->id] ?? null;
+                                            @endphp
+                                            {{ $remainingDays !== null ? $remainingDays . ' روز' : 'تایید شده' }}
+                                        @else
+                                            تایید شده
+                                        @endif
+                                    </td>
+                                    <td>{{ $request->jalali_created_at }}</td>
+                                    <td>
+                                        <a href="{{ route('dis_requests.havale_data', $request->havale_number) }}" class="btn btn-info">مشاهده جزئیات</a>
+                                    </td>
+                                </tr>
+                                @endif
                             @endif
                         @endforeach
                     </tbody>
@@ -90,7 +97,9 @@
                         <tr>
                             <th>ردیف</th>
                             <th>نام نماینده</th>
-                            <th>نام شهر</th>
+                            <th>نام استان</th>
+                            <th>نام شهرستان</th>
+                            <th>نام کشور</th>
                             <th>شماره حواله</th>
                             <th>وضعیت درخواست</th>
                             <th>وضعیت حواله  </th>
@@ -109,6 +118,8 @@
                                 <td>{{ ++$q }}</td>
                                 <td>{{ $request->user_name }}</td> {{-- از select در کنترلر گرفتیم --}}
                                 <td>{{ $request->city_name ?? '-' }}</td> {{-- بعداً باید در کنترلر اضافه بشه --}}
+                                <td>{{ $request->city_state ?? '-' }}</td> {{-- بعداً باید در کنترلر اضافه بشه --}}
+                                <td>{{ $request->city_country ?? '-' }}</td> {{-- بعداً باید در کنترلر اضافه بشه --}}
                                 <td>{{ $request->havale_number }}</td>
                                 <td>
                                     @if($request->status == 'In Progress')

@@ -302,6 +302,10 @@ Route::middleware(['auth', 'role:personnel|distributor'])->group(function () {
 
     Route::get('/dis_requests/{id}', [DisRequestController::class, 'show'])->name('dis_requests.show');
     Route::get('/dis_requests/create', [DisRequestController::class, 'create'])->name('dis_requests.create');
+   
+    Route::post('/dis_requests/multi_create', [DisRequestController::class, 'multiCreate'])->name('dis_requests.multiCreate');
+    Route::post('/dis_requests/multi_store', [DisRequestController::class, 'multiStore'])->name('dis_requests.multiStore');
+
     Route::post('/dis_requests', [DisRequestController::class, 'store'])->name('dis_requests.store');
     Route::get('/personelcompleted-requests', [DisRequestController::class, 'personelcompletedRequests'])->name('dis_requests.personelcompleted');
     Route::get('/completed-requests', [DisRequestController::class, 'completedRequests'])->name('dis_requests.completed');

@@ -97,61 +97,58 @@
         </div>
 
         <!-- Table -->
-        <div class="table-responsive mt-3">
-            <table border="1" class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>کد محصول</th>
-                        <th>نام برند</th>
-                        <th>درجه</th>
-                        <th>سایز</th>
-                        <th>طرح</th>
-                        <th>رنگ</th>
-                        <th>کد رنگ</th>
-                        <th>موجودی</th>
-                    </tr>
-                </thead>
-                <tbody id="product-list">
-                    <?php $n=0 ?>
-                   
-                    @foreach ($products as $product)
-                    @if($product->color_code != 'CL000')
-                    @if($product->inventory > 23)
-                    <?php $n++ ?>
+        <form action="{{ route('dis_requests.multiCreate') }}" method="POST">
+            @csrf
+          
+            @if(auth()->user()->role <> 'manager')
+                <div class="d-flex justify-content mb-3">
+                    <button type="submit" class="btn btn-warning">انتخاب و ادامه درخواست</button>
+                </div>
+            @endif
+            <div class="table-responsive mt-3">
+                <table border="1" class="table table-bordered">
+                    <thead>
                         <tr>
-                            <td>{{ $product->id_number }}</td>
-                            <td>{{ $product->name }}</td>
-                            <td>{{ $product->degree }}</td>
-                            <td>{{ $product->size }}</td>
-                            <td>{{ $product->model }}</td>
-                            <td>{{ $product->color }}</td>
-                            <td>{{ $product->color_code }}</td>
-                            <td class="inventory">
-                                @if($product->inventory > 1000)
-                                    @if($product->degree <> '4')
-                                        < 1000
-                                    @else
-                                        {{ number_format($product->inventory, 2) }}
-                                    @endif
-                                @else 
-                                {{ number_format($product->inventory, 2) }}
-                                @endif
-                            </td>
-                             @if(auth()->user()->role != "manager")
-                    <td style="">
-                   
-                    <a class="p-2 btn btn-sm btn-warning" href="{{ route('dis_requests.create', ['product_id' => $product->id_number]) }}">انتخاب</a>
-
-                
-                    </td>
-                 @endif
+                            <th style="width: 20px" >انتخاب</th>
+                            <th>کد محصول</th>
+                            <th>نام برند</th>
+                            <th>درجه</th>
+                            <th>سایز</th>
+                            <th>طرح</th>
+                            <th>رنگ</th>
+                            <th>کد رنگ</th>
+                            <th>موجودی</th>
                         </tr>
-                        @endif
-                        @endif
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody id="product-list">
+                        @foreach ($products as $product)
+                            @if($product->color_code != 'CL000' && $product->inventory > 23)
+                                <tr>
+                                    <td class="text-center">
+                                        <input type="checkbox" name="selected_products[]" value="{{ $product->id_number }}">
+                                    </td>
+                                    <td>{{ $product->id_number }}</td>
+                                    <td>{{ $product->name }}</td>
+                                    <td>{{ $product->degree }}</td>
+                                    <td>{{ $product->size }}</td>
+                                    <td>{{ $product->model }}</td>
+                                    <td>{{ $product->color }}</td>
+                                    <td>{{ $product->color_code }}</td>
+                                    <td class="inventory">
+                                        @if($product->inventory > 1000 && $product->degree != '4')
+                                            < 1000
+                                        @else
+                                            {{ number_format($product->inventory, 2) }}
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endif
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        
 
         <!-- Include jQuery -->
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

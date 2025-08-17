@@ -95,6 +95,61 @@ public function create(Request $request)
     return view('dis_requests.create', compact('product', 'productId', 'distributors'));
 }
 
+public function multiCreate(Request $request)
+{
+    $productIds = $request->input('selected_products', []);
+
+    if (empty($productIds)) {
+        return redirect()->back()->with('error', 'هیچ محصولی انتخاب نشده است.');
+    }
+
+    $products = DB::connection('sqlsrv')->table('vw_CRMproducts')
+                ->whereIn('id_number', $productIds)
+                ->get();
+
+    $distributors = \App\Models\User::whereHas('userdata', function ($query) {
+        $query->where('personel_id', auth()->id());
+    })->get();
+
+    return view('dis_requests.create', compact('products', 'distributors'));
+}
+
+public function multiStore(Request $request)
+{
+    $request->validate([
+        'products.*.id_number' => 'required|string',
+        'products.*.request_size' => 'required|numeric',
+        'status' => 'required|in:Pending,Approved,Rejected,Completed',
+        'tel_number' => 'required|string',
+        'request_owner' => 'required|string',
+        'address' => 'required|string',
+    ]);
+
+    $user_id = auth()->user()->role == 'distributor'
+        ? auth()->id()
+        : $request->input('distributor_id');
+
+    foreach ($request->input('products') as $product) {
+        DisRequest::create([
+            'product_id'     => $product['id_number'],
+            'request_size'   => $product['request_size'],
+            'request_type'   => $request->request_type,
+            'status'         => $request->status,
+            'user_id'        => $user_id,
+            'tel_number'     => $request->tel_number,
+            'request_owner'  => $request->request_owner,
+            'address'        => $request->address,
+        ]);
+    }
+
+    if (auth()->user()->role == 'personnel') {
+        return redirect()->route('requests.personeelindex')->with('success', 'همه درخواست‌ها با موفقیت ثبت شدند.');
+    }
+
+    return redirect()->route('dis_requests.index')->with('success', 'همه درخواست‌ها با موفقیت ثبت شدند.');
+}
+
+
 
     public function store(Request $request)
     {

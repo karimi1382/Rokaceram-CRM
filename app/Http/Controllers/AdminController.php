@@ -16,303 +16,171 @@ use Carbon\Carbon;
 use Morilog\Jalali\Jalalian;
 
 
+
+
+
 class AdminController extends Controller
 {
     //
 
     
     public function index()
-    {
-    
-        try {
-            // بررسی اتصال به دیتابیس
-            \DB::connection('sqlsrv')->getPdo();
-    
-    
-    
-    
-    $currentYear = Jalalian::now()->getYear();
-    // تبدیل شروع و پایان سال شمسی به میلادی برای فیلتر دیتابیس
-    $startOfYear = Jalalian::fromFormat('Y/m/d', "$currentYear/01/01")->toCarbon()->startOfDay();
-    $endOfYear = Jalalian::fromFormat('Y/m/d', "$currentYear/12/29")->toCarbon()->endOfDay();
-    // دریافت همه درخواست‌هایی که در سال جاری ساخته شده‌اند
-    $requestsInCurrentYear = DisRequest::whereBetween('created_at', [$startOfYear, $endOfYear])
-    ->where('file_path',Null)
-    ->pluck('id');
-    // دریافت همه dis_request_id که در جدول حواله ثبت شده‌اند
-    $havaleRequestIds = DisRequestHavale::whereIn('dis_request_id', $requestsInCurrentYear)->pluck('dis_request_id');
-    // فیلتر کردن درخواست‌هایی که هنوز حواله ثبت نشده دارند
-    
-    
-    $unconfirmedRequests = $requestsInCurrentYear->diff($havaleRequestIds);
-    // تعداد درخواست‌هایی که حواله ندارند
-    $totalUnconfirmedCount = $unconfirmedRequests->count();
-    
-    
-    //===================================
-    
-    $totalInProgressHavale = DisRequestHavale::whereBetween('created_at', [$startOfYear, $endOfYear])
-        ->where('status', 'In Progress')
-        ->count();
-    
-    //================================
-    
-    $approvedHavaleNumbers = DisRequestHavale::whereBetween('created_at', [$startOfYear, $endOfYear])
-        ->where('status', 'Approved')
-        ->pluck('havale_number')
-        ->toArray();
-    
-    // مرحله 3: اگر حواله‌ای وجود داشت، متراژ رو از دیتابیس دوم حساب کن
-    $totalReservedSize = 0;
-    
-    if (!empty($approvedHavaleNumbers)) {
-        $totalReservedSize = DB::connection('sqlsrv')
-            ->table('vw_HavaleData')
-            ->whereIn('havale', $approvedHavaleNumbers)
-            ->where('mali', '=', 1)  // فقط حواله‌های تایید مالی
-            ->sum('product_MR');     // جمع متراژ کل
-    
-    } else {
+{
+    try {
+        \DB::connection('sqlsrv')->getPdo();
+
+        $currentYear = Jalalian::now()->getYear();
+        $startOfYear = Jalalian::fromFormat('Y/m/d', "$currentYear/01/01")->toCarbon()->startOfDay();
+        $endOfYear = Jalalian::fromFormat('Y/m/d', "$currentYear/12/29")->toCarbon()->endOfDay();
+
+        // موارد اصلی بدون تغییر:
+        $requestsInCurrentYear = DisRequest::whereBetween('created_at', [$startOfYear, $endOfYear])
+            ->whereNull('file_path')->pluck('id');
+
+        $havaleRequestIds = DisRequestHavale::whereIn('dis_request_id', $requestsInCurrentYear)->pluck('dis_request_id');
+
+        $unconfirmedRequests = $requestsInCurrentYear->diff($havaleRequestIds);
+        $totalUnconfirmedCount = $unconfirmedRequests->count();
+
+        $totalInProgressHavale = DisRequestHavale::whereBetween('created_at', [$startOfYear, $endOfYear])
+            ->where('status', 'In Progress')->count();
+
+        $approvedHavaleNumbers = DisRequestHavale::whereBetween('created_at', [$startOfYear, $endOfYear])
+            ->where('status', 'Approved')->pluck('havale_number')->toArray();
+
         $totalReservedSize = 0;
-    }
-    
-    //=====================================
-    
-    // دریافت حواله‌های با وضعیت Completed در سال جاری
-    $approvedHavaleNumbers = DisRequestHavale::where('status', 'Completed')
-        ->whereBetween('created_at', [$startOfYear, $endOfYear])
-        ->pluck('havale_number')
-        ->toArray();
-    
-    // اگر داده‌ای وجود داشت، در دیتابیس دوم استعلام بزن و جمع متراژ بگیر
-    if (!empty($approvedHavaleNumbers)) {
-        $totalCompletedSize = \DB::connection('sqlsrv')
+        if (!empty($approvedHavaleNumbers)) {
+            $totalReservedSize = DB::connection('sqlsrv')
+                ->table('vw_HavaleData')
+                ->whereIn('havale', $approvedHavaleNumbers)
+                ->where('mali', 1)
+                ->sum('product_MR');
+        }
+
+        $approvedHavaleNumbers = DisRequestHavale::where('status', 'Completed')
+            ->whereBetween('date_target', [$startOfYear, $endOfYear])
+            ->pluck('havale_number')->toArray();
+
+        $totalCompletedSize = !empty($approvedHavaleNumbers) ? DB::connection('sqlsrv')
             ->table('vw_HavaleData')
             ->whereIn('havale', $approvedHavaleNumbers)
-            ->where('mali', '=', 1)
-            ->whereNotNull('tavali')  // شرط جدید: تولی نباید نال باشه
-            ->sum('product_MR');
-    } else {
-        $totalCompletedSize = 0;
-    }
-    
-    //=====================
-    
-    // گرفتن حواله‌های تایید شده در سال جاری با وضعیت completed
-    $completedHavale = DisRequestHavale::where('status', 'Completed')
-        ->whereBetween('created_at', [$startOfYear, $endOfYear])
-        ->get();
-    
-    // تبدیل به آرایه ای از حواله‌نامبر‌ها
-    $havaleNumbers = $completedHavale->pluck('havale_number')->unique()->toArray();
-    
-    // دیتای متراژ از دیتابیس دوم: فقط حواله‌های مورد تأیید و تولد ثبت شده
-    $havaleData = \DB::connection('sqlsrv')
-        ->table('vw_HavaleData')
-        ->whereIn('havale', $havaleNumbers)
-        ->where('mali', '=', 1)
-        ->whereNotNull('tavali')
-        ->get(['havale', 'product_MR']);
-    
-    // ساخت آرایه ماهیانه متراژ
-    $monthlyTotal = array_fill(1, 12, 0);
-    
-    foreach ($completedHavale as $havale) {
-        // استخراج ماه شمسی از تاریخ هدف (date_target)
-        $month = Jalalian::fromCarbon(Carbon::parse($havale->date_target))->getMonth();
-    
-        // جمع متراژ حواله‌های مرتبط
-        $relatedHavale = $havaleData->where('havale', $havale->havale_number);
-        $sumMR = $relatedHavale->sum('product_MR');
-    
-        // افزودن به ماه مناسب
-        $monthlyTotal[$month] += $sumMR;
-    }
-    
-    
-    // آماده‌سازی برای ارسال به ویو
-    $monthLabels = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
-    $soldMetersData = array_values($monthlyTotal);
-    
-    
-    //==================================
-    
-    $havaleNumbers = DB::table('dis_request_havales')
-        ->where('status', 'Completed')
-        ->whereBetween('created_at', [$startOfYear, $endOfYear])
-        ->pluck('havale_number')
-        ->toArray();
-    
+            ->where('mali', 1)
+            ->whereNotNull('tavali')
+            ->sum('product_MR') : 0;
+
+        // -----------------------------
+        // نمودار ماهانه فروش
+        // -----------------------------
+        $havaleData = DB::connection('sqlsrv')
+            ->table('vw_HavaleData')
+            ->whereIn('havale', $approvedHavaleNumbers)
+            ->where('mali', 1)
+            ->whereNotNull('tavali')
+            ->get(['havale', 'product_MR', 'tavali']);
+
+        $monthlyTotal = array_fill(1, 12, 0);
+        foreach ($havaleData as $record) {
+            $month = Jalalian::fromCarbon(Carbon::parse($record->tavali))->getMonth();
+            $monthlyTotal[$month] += $record->product_MR;
+        }
+
+        $monthLabels = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+        $soldMetersData = array_values($monthlyTotal);
+
+        // -----------------------------
+        // نمودار ۵ محصول برتر (براساس product_MR)
+        // -----------------------------
         $soldProducts = DB::connection('sqlsrv')
-        ->table('vw_HavaleData')
-        ->whereIn('havale', $havaleNumbers)
-        ->where('mali', 1)
-        ->whereNotNull('tavali')
-        ->select('product_name', DB::raw('SUM(product_MR) as total_MR'))
-        ->groupBy('product_name')
-        ->orderByDesc('total_MR')
-        ->limit(5)
-        ->get();
-    
-    
+            ->table('vw_HavaleData')
+            ->whereIn('havale', $approvedHavaleNumbers)
+            ->where('mali', 1)
+            ->whereNotNull('tavali')
+            ->select('product_name', DB::raw('SUM(product_MR) as total_MR'))
+            ->groupBy('product_name')
+            ->orderByDesc('total_MR')
+            ->limit(5)
+            ->get();
+
         $productLabels = [];
         $productData = [];
         foreach ($soldProducts as $product) {
             $nameParts = explode(' - ', $product->product_name);
-        
             $brand = $nameParts[3] ?? '';
             $color = $nameParts[4] ?? '';
-            $size  = $nameParts[2] ?? '';
+            $size = $nameParts[2] ?? '';
             $grade = $nameParts[1] ?? '';
-        
-            // حالت قبل با توضیحات کامل
             $productLabels[] = "$brand - $color - $size - $grade";
-            $productData[] = round($product->total_MR, 2) ;
+            $productData[] = round($product->total_MR, 2);
         }
-        
-    
-    
-    //=========================================
-    
-    $havaleNumbers = DB::table('dis_request_havales')
-        ->where('status', 'Completed')
-        ->whereBetween('created_at', [$startOfYear, $endOfYear])
-        ->pluck('havale_number')
-        ->toArray();
-    
-    // دیتای محصولات فروخته‌شده با شرایط داده‌شده
-    $soldProducts = DB::connection('sqlsrv')
-        ->table('vw_HavaleData')
-        ->whereIn('havale', $havaleNumbers)
-        ->where('mali', 1)
-        ->whereNotNull('tavali')
-        ->select('product_name', DB::raw('SUM(product_MR) as total_MR'))
-        ->groupBy('product_name')
-        ->get();
-    
-    // آماده‌سازی دیتا بر اساس سایز
-    $sizeData = [];
-    
-    foreach ($soldProducts as $product) {
-        $nameParts = explode(' - ', $product->product_name);
-        $size = $nameParts[2] ?? 'نامشخص';  // استخراج سایز
-    
-        if (!isset($sizeData[$size])) {
-            $sizeData[$size] = 0;
+
+        // -----------------------------
+        // نمودار متراژ به تفکیک سایز
+        // -----------------------------
+        $sizeProducts = DB::connection('sqlsrv')
+            ->table('vw_HavaleData')
+            ->whereIn('havale', $approvedHavaleNumbers)
+            ->where('mali', 1)
+            ->whereNotNull('tavali')
+            ->select('product_name', DB::raw('SUM(product_MR) as total_MR'))
+            ->groupBy('product_name')
+            ->get();
+
+        $sizeData = [];
+        foreach ($sizeProducts as $product) {
+            $size = explode(' - ', $product->product_name)[2] ?? 'نامشخص';
+            $sizeData[$size] = ($sizeData[$size] ?? 0) + $product->total_MR;
         }
-        $sizeData[$size] += $product->total_MR;
-    }
-    
-    // مرتب‌سازی سایزها براساس متراژ (اختیاری)
-    // arsort($sizeData); 
-    
-    // آماده‌سازی برای ویو
-    $sizeLabels = array_keys($sizeData);
-    $sizeValues = array_map(function($value) {
-        return round($value, 2);
-    }, array_values($sizeData));
-    
-    
-    //==============================
-    
-    // داده‌ها را از جدول نمایندگان و متراژ خریداری شده دریافت می‌کنیم
-    $distributors = DB::table('users')
-        ->join('profiles', 'users.id', '=', 'profiles.user_id')
-        ->join('cities', 'profiles.city_id', '=', 'cities.id')
-        ->where('users.role', 'distributor')
-        ->select('users.id', 'users.name', 'cities.name as city_name')
-        ->get();
-    
-    // آماده کردن لیست آی‌دی‌ها برای درخواست‌ها
-    $distributorIds = $distributors->pluck('id')->toArray();
-    
-    // گرفتن حواله‌های تایید شده در سال جاری برای هر نماینده
-    $completedHavaleNumbers = DB::table('dis_requests')
-        ->join('dis_request_havales', 'dis_requests.id', '=', 'dis_request_havales.dis_request_id')
-        ->whereIn('dis_requests.user_id', $distributorIds)
-        ->where('dis_request_havales.status', 'Completed')
-        ->whereBetween('dis_request_havales.created_at', [$startOfYear, $endOfYear])
-        ->select('dis_requests.user_id', 'dis_request_havales.havale_number')
-        ->get();
-    
-    // گروه‌بندی حواله‌ها بر اساس نماینده
-    $havaleMap = [];
-    foreach ($completedHavaleNumbers as $item) {
-        $havaleMap[$item->user_id][] = $item->havale_number;
-    }
-    
-    // دیتای متراژ از دیتابیس دوم
-    $allHavaleNumbers = collect($havaleMap)->flatten()->unique()->toArray();
-    
-    $havaleData = DB::connection('sqlsrv')
-        ->table('vw_HavaleData')
-        ->whereIn('havale', $allHavaleNumbers)
-        ->where('mali', 1)
-        ->whereNotNull('tavali')
-        ->select('havale', 'product_MR')
-        ->get();
-    
-    // جمع متراژ برای هر نماینده
-    $requestSizes = [];
-    foreach ($havaleMap as $userId => $havaleList) {
-        $total = $havaleData->whereIn('havale', $havaleList)->sum('product_MR');
-        $requestSizes[$userId] = round($total, 2);
-    }
-    
-    // فیلتر نمایندگان با خرید واقعی
-    $topDistributors = $distributors->filter(function ($distributor) use ($requestSizes) {
-        return isset($requestSizes[$distributor->id]) && $requestSizes[$distributor->id] > 0;
-    })->sortByDesc(function ($distributor) use ($requestSizes) {
-        return $requestSizes[$distributor->id];
-    })->take(5);
-    
-    // ترکیب اطلاعات نمایندگان و متراژ خریداری شده
-    $topDistributorsWithSizes = $topDistributors->map(function ($distributor) use ($requestSizes) {
-        $distributor->product_mr = $requestSizes[$distributor->id] ?? 0; // افزودن متراژ به هر نماینده
-        return $distributor;
-    });
-    
-    //=====================================
-    
-    
-    
-    
-    
+        $sizeLabels = array_keys($sizeData);
+        $sizeValues = array_map(fn($v) => round($v, 2), array_values($sizeData));
+
+        // -----------------------------
+        // ۵ نماینده برتر بر اساس متراژ در tavali
+        // -----------------------------
+        $distributors = DB::table('users')
+            ->join('profiles', 'users.id', '=', 'profiles.user_id')
+            ->join('cities', 'profiles.city_id', '=', 'cities.id')
+            ->where('users.role', 'distributor')
+            ->select('users.id', 'users.name', 'cities.name as city_name', 'users.target')
+            ->get();
+
+        $distributorIds = $distributors->pluck('id')->toArray();
+
+        $completedHavaleNumbers = DB::table('dis_requests')
+            ->join('dis_request_havales', 'dis_requests.id', '=', 'dis_request_havales.dis_request_id')
+            ->whereIn('dis_requests.user_id', $distributorIds)
+            ->where('dis_request_havales.status', 'Completed')
+            ->select('dis_requests.user_id', 'dis_request_havales.havale_number')
+            ->get();
+
+        $havaleMap = [];
+        foreach ($completedHavaleNumbers as $item) {
+            $havaleMap[$item->user_id][] = $item->havale_number;
+        }
+
+        $allHavaleNumbers = collect($havaleMap)->flatten()->unique()->toArray();
+
+        $havaleData = DB::connection('sqlsrv')
+            ->table('vw_HavaleData')
+            ->whereIn('havale', $allHavaleNumbers)
+            ->where('mali', 1)
+            ->whereNotNull('tavali')
+            ->select('havale', 'product_MR')
+            ->get();
+
+        $requestSizes = [];
+        foreach ($havaleMap as $userId => $havaleList) {
+            $total = $havaleData->whereIn('havale', $havaleList)->sum('product_MR');
+            $requestSizes[$userId] = round($total, 2);
+        }
+
+        $topDistributorsWithSizes = $distributors->filter(function ($d) use ($requestSizes) {
+            return isset($requestSizes[$d->id]) && $requestSizes[$d->id] > 0;
+        })->sortByDesc(fn($d) => $requestSizes[$d->id])->take(5)->map(function ($d) use ($requestSizes) {
+            $d->product_mr = $requestSizes[$d->id] ?? 0;
+            return $d;
+        });
+
         return view('manager.index', compact(
-            
-    
-    
-    
-    
-            'totalUnconfirmedCount',
-            'totalInProgressHavale',
-            'totalReservedSize',
-            'totalCompletedSize',
-            'monthLabels', 'soldMetersData',
-            'productLabels', 'productData',
-            'sizeLabels', 'sizeValues',
-            'topDistributorsWithSizes'
-        ));
-    
-        
-    } catch (\Exception $e) {
-        // اگر خطا بود، همه داده‌ها نال باشه
-        $totalUnconfirmedCount = null;
-        $totalInProgressHavale = null;
-        $totalReservedSize = null;
-        $totalCompletedSize = null;
-        $monthLabels = null;
-        $soldMetersData = null;
-        $productLabels = null;
-        $productData = null;
-        $sizeLabels = null;
-        $sizeValues = null;
-        $topDistributorsWithSizes = null;
-       
-        $error = 'ارتباط با دیتابیس برقرار نیست. لطفاً اتصال خود را بررسی کنید.';
-    
-        return view('manager.index', compact(
-            
             'totalUnconfirmedCount',
             'totalInProgressHavale',
             'totalReservedSize',
@@ -321,46 +189,153 @@ class AdminController extends Controller
             'productLabels', 'productData',
             'sizeLabels', 'sizeValues',
             'topDistributorsWithSizes',
+            'requestSizes'
+        ));
+
+    } catch (\Exception $e) {
+        $error = 'ارتباط با دیتابیس برقرار نیست. لطفاً اتصال خود را بررسی کنید.';
+        return view('manager.index', compact(
             'error'
         ));
-    
     }
-    }
-    
-    
-    
-    public function personneltargetshow(){
-        $personnel = User::where('role', 'personnel')
-        ->with(['children.user' => function ($query) {
-            $query->withSum(['disRequests as total_request_size' => function ($query) {
-                $query->where('status', 'completed');
-            }], 'request_size');
-        }])
-        ->get();
-
-      
-
-    return view('admin.personneltargetshow', compact('personnel'));
-    }
-
-
-
-    public function personneltargetshowdetile($id)
-{
-    $personnel = User::findOrFail($id);
-
-    // Fetch children and calculate their total request size
-    $children = $personnel->children()
-        ->with(['user' => function ($query) {
-            $query->withSum(['disRequests as total_request_size' => function ($query) {
-                $query->where('status', 'completed');
-            }], 'request_size')->with('userData.city');;
-        }])
-        ->get();
-
-    return view('admin.personneltargetshowdetile', compact('personnel', 'children'));
 }
 
+    
+    
+    
+    public function personneltargetshow(Request $request)
+    {
+        $shamsiYear = $request->query('year');
+        $shamsiMonth = $request->query('month');
+        $now = Jalalian::now();
+    
+        if (!$shamsiYear || !$shamsiMonth) {
+            $shamsiYear = $now->getYear();
+            $shamsiMonth = $now->getMonth();
+        }
+    
+        $shamsiYear = (int)$shamsiYear;
+        $shamsiMonth = (int)$shamsiMonth;
+    
+        $startDate = Jalalian::fromFormat('Y/m/d', sprintf('%04d/%02d/01', $shamsiYear, $shamsiMonth))->toCarbon()->startOfDay();
+        $endDate = (clone $startDate)->addMonth()->startOfDay();
+    
+        // گرفتن تاریخ‌های بارگیری شده از ویو vw_HavaleData
+        $havaleData = collect(DB::connection('sqlsrv')->select("SELECT havale_number, tavali_date, user_id, request_size FROM vw_HavaleData"))
+            ->map(function ($item) {
+                $item->tavali_date = Carbon::parse($item->tavali_date);
+                return $item;
+            });
+    
+        // فیلتر فقط داده‌هایی که در بازه‌ی این ماه هستند
+        $filtered = $havaleData->filter(function ($item) use ($startDate, $endDate) {
+            return $item->tavali_date >= $startDate && $item->tavali_date < $endDate;
+        });
+    
+        // گروه‌بندی بر اساس user_id (نماینده‌ها)
+        $completedByUser = $filtered->groupBy('user_id')->map(function ($items) {
+            return $items->sum('request_size');
+        });
+    
+        // گروه‌بندی بر اساس کل سال (برای کل متراژ سال)
+        $yearStart = Jalalian::fromFormat('Y/m/d', sprintf('%04d/01/01', $shamsiYear))->toCarbon()->startOfDay();
+        $yearEnd = (clone $yearStart)->addYear()->startOfDay();
+    
+        $yearlyCompleted = $havaleData->filter(function ($item) use ($yearStart, $yearEnd) {
+            return $item->tavali_date >= $yearStart && $item->tavali_date < $yearEnd;
+        })->groupBy('user_id')->map(function ($items) {
+            return $items->sum('request_size');
+        });
+    
+        $personnel = User::where('role', 'personnel')
+            ->with('children') // نماینده‌ها
+            ->get();
+    
+        $results = [];
+    
+        foreach ($personnel as $person) {
+            $children = $person->children;
+            $completedTotal = 0;
+            $yearlyCompletedTotal = 0;
+    
+            foreach ($children as $child) {
+                $completedTotal += $completedByUser[$child->user_id] ?? 0;
+                $yearlyCompletedTotal += $yearlyCompleted[$child->user_id] ?? 0;
+            }
+    
+            $results[] = [
+                'personnel_id' => $person->id,
+                'personnel_name' => $person->name,
+                'children_count' => $children->count(),
+                'approved_total' => 0, // اگه نیاز داری پر بشه بگو
+                'completed_total' => $completedTotal,
+                'target' => $person->target ?? 0,
+                'yearly_completed_total' => $yearlyCompletedTotal,
+            ];
+        }
+    
+        return view('admin.personneltargetshow', compact('results', 'shamsiYear', 'shamsiMonth'));
+    }
+
+
+
+    public function personneltargetshowdetile(Request $request, $id)
+    {
+        $shamsiYear = $request->query('year');
+        $shamsiMonth = $request->query('month');
+        $now = Jalalian::now();
+    
+        if (!$shamsiYear || !$shamsiMonth) {
+            $shamsiYear = $now->getYear();
+            $shamsiMonth = $now->getMonth();
+        }
+    
+        $shamsiYear = (int)$shamsiYear;
+        $shamsiMonth = (int)$shamsiMonth;
+    
+        $startDate = Jalalian::fromFormat('Y/m/d', sprintf('%04d/%02d/01', $shamsiYear, $shamsiMonth))->toCarbon()->startOfDay();
+        $endDate = (clone $startDate)->addMonth()->startOfDay();
+    
+        $personnel = User::findOrFail($id);
+    
+        $children = $personnel->children()->with('user')->get();
+    
+        // خواندن داده‌های بارگیری‌شده از ویو
+        $havaleData = collect(DB::connection('sqlsrv')->select("SELECT user_id, tavali_date, request_size FROM vw_HavaleData"))
+            ->map(function ($item) {
+                $item->tavali_date = Carbon::parse($item->tavali_date);
+                return $item;
+            });
+    
+        // آماده‌سازی لیست نهایی
+        $childrenProfiles = [];
+    
+        foreach ($children as $child) {
+            $childUser = $child->user;
+    
+            // فیلتر بر اساس user_id و بازه زمانی
+            $completedTotal = $havaleData
+                ->filter(function ($item) use ($childUser, $startDate, $endDate) {
+                    return $item->user_id == $childUser->id && $item->tavali_date >= $startDate && $item->tavali_date < $endDate;
+                })
+                ->sum('request_size');
+    
+            // در صورت نیاز می‌تونی reserved رو هم اضافه کنی از منابع دیگر
+    
+            $childrenProfiles[] = (object) [
+                'user' => $childUser,
+                'reserved_request_size' => 0, // می‌تونی بعداً تکمیلش کنی
+                'completed_request_size' => $completedTotal,
+            ];
+        }
+    
+        return view('admin.personneltargetshowdetile', [
+            'parentUser' => $personnel,
+            'childrenProfiles' => $childrenProfiles,
+            'shamsiYear' => $shamsiYear,
+            'shamsiMonth' => $shamsiMonth,
+        ]);
+    }
 
 
 
@@ -389,6 +364,8 @@ class AdminController extends Controller
         'dis_requests.user_id',
         'users.name as user_name',
         'cities.name as city_name',
+        'cities.state as city_state',
+        'cities.country as city_country',
         'dis_requests.created_at as request_created_at'
     )
     ->orderBy('dis_request_havales.created_at', 'desc')
@@ -437,14 +414,15 @@ class AdminController extends Controller
     /**
      * نمایش حواله‌های تکمیل‌شده
      */
-    public function completedHavale(Request $request , HavaleSyncService $havaleSync)
+
+    
+    public function completedHavale(Request $request, HavaleSyncService $havaleSync)
     {
         $havaleSync->sync();
-        // 1. دریافت پارامترهای فیلتر یا مقدار پیش‌فرض (سال و ماه)
+    
+        // دریافت پارامترهای تاریخ از درخواست یا مقدار پیش‌فرض
         $year = $request->query('year');
         $month = $request->query('month');
-    
-        // تاریخ امروز به صورت جلالی
         $now = Jalalian::now();
     
         if (!$year || !$month) {
@@ -452,67 +430,60 @@ class AdminController extends Controller
             $month = $now->getMonth();
         }
     
-        $year = (int)$year;
-        $month = (int)$month;
+        $year = (int) $year;
+        $month = (int) $month;
     
-        // 2. پیدا کردن سال حداقل و حداکثر از داده‌ها (تاریخ ثبت درخواست‌ها)
-        // فرض می‌کنیم ستون created_at در دیتابیس به میلادی هست و تاریخ‌ها رو تبدیل می‌کنیم به سال شمسی
+        // گرفتن همه داده‌های تاریخ از connection دوم
+        $havaleDates = collect(DB::connection('sqlsrv')->select("SELECT havale, tavali_Date FROM vw_HavaleData"))
+            ->keyBy('havale');
     
-        $minCreatedAt = DB::table('dis_request_havales')->min('created_at');
-        $maxCreatedAt = DB::table('dis_request_havales')->max('created_at');
+        // min/max برای ساخت سال‌ها
+        $dates = $havaleDates->pluck('tavali_Date')->map(fn($d) => Carbon::parse($d));
+        $minYear = $dates->min() ? Jalalian::fromCarbon($dates->min())->getYear() : $year;
+        $maxYear = $dates->max() ? Jalalian::fromCarbon($dates->max())->getYear() : $year;
     
-        $minYear = $minCreatedAt ? Jalalian::fromCarbon(\Carbon\Carbon::parse($minCreatedAt))->getYear() : $year;
-        $maxYear = $maxCreatedAt ? Jalalian::fromCarbon(\Carbon\Carbon::parse($maxCreatedAt))->getYear() : $year;
+        $years = range($maxYear + 2, $minYear - 2);
     
-        // 3. تعیین بازه سال‌ها: دو سال قبل از minYear تا دو سال بعد از maxYear
-        $startYear = $minYear - 2;
-        $endYear = $maxYear + 2;
-    
-        // آرایه سال‌ها (نزولی)
-        $years = range($endYear, $startYear);
-    
-        // 4. آرایه ماه‌ها
         $months = [
             1 => 'فروردین', 2 => 'اردیبهشت', 3 => 'خرداد', 4 => 'تیر',
             5 => 'مرداد', 6 => 'شهریور', 7 => 'مهر', 8 => 'آبان',
             9 => 'آذر', 10 => 'دی', 11 => 'بهمن', 12 => 'اسفند'
         ];
     
-        // 5. محاسبه بازه تاریخ برای فیلتر کوئری
+        // محاسبه بازه تاریخ فیلتر
         $startDate = Jalalian::fromFormat('Y/m/d', sprintf('%04d/%02d/01', $year, $month))->toCarbon()->startOfDay();
         $endDate = (clone $startDate)->addMonth()->startOfDay();
     
-        // 6. کوئری گرفتن داده‌ها با فیلتر تاریخ
+        // دریافت حواله‌های تکمیل‌شده
         $havales = DB::table('dis_request_havales')
             ->join('dis_requests', 'dis_request_havales.dis_request_id', '=', 'dis_requests.id')
             ->join('users', 'dis_requests.user_id', '=', 'users.id')
             ->leftJoin('profiles', 'users.id', '=', 'profiles.user_id')
             ->leftJoin('cities', 'profiles.city_id', '=', 'cities.id')
             ->where('dis_request_havales.status', 'Completed')
-            ->whereBetween('dis_request_havales.created_at', [$startDate, $endDate])
             ->select(
                 'dis_request_havales.*',
                 'dis_requests.user_id',
                 'users.name as user_name',
                 'cities.name as city_name',
-                'dis_requests.created_at as request_created_at'
+                'cities.state as ostan_name',
+                'cities.country as country_name'
             )
-            ->orderBy('dis_request_havales.created_at', 'desc')
             ->get();
     
+        // فیلتر کردن بر اساس تاریخ از کانکشن دوم
+        $filtered = $havales->filter(function ($item) use ($havaleDates, $startDate, $endDate) {
+            $havale = $havaleDates->get($item->havale_number);
+            if (!$havale) return false;
+    
+            $havaleDate = Carbon::parse($havale->tavali_Date);
+            $item->jalali_created_at = Jalalian::fromCarbon($havaleDate)->format('Y/m/d');
+            return $havaleDate >= $startDate && $havaleDate < $endDate;
+        });
+    
         // گروه‌بندی بر اساس شماره حواله
-        $uniqueRequests = $havales->groupBy('havale_number');
+        $uniqueRequests = $filtered->groupBy('havale_number');
     
-        foreach ($uniqueRequests as $havaleNumber => $requestsForHavale) {
-            $request = $requestsForHavale->first();
-    
-            // تبدیل تاریخ به شمسی برای نمایش
-            $request->jalali_created_at = $request->created_at
-                ? Jalalian::fromCarbon(\Carbon\Carbon::parse($request->created_at))->format('Y/m/d')
-                : 'N/A';
-        }
-    
-        // ارسال داده‌ها به ویو
         return view('admin.havale_completed', compact('uniqueRequests', 'months', 'years', 'month', 'year'));
     }
     
